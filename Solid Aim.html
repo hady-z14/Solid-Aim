@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Solid Aim</title>
+<style>
+    :root {
+        --glass: rgba(255, 255, 255, 0.15);
+        --header-glass: rgba(255, 255, 255, 0.6); 
+        --border: rgba(255, 255, 255, 0.2);
+        --glow-color: #00f2ff;
+    }
+
+    body, html {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+        background: url('image_0.png') no-repeat center center fixed;
+        background-size: cover;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        color: white;
+    }
+
+    /* Floating Pill Header */
+    #header-ui {
+        margin-top: 20px;
+        padding: 12px 35px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 30px;
+        background: var(--header-glass);
+        backdrop-filter: blur(25px);
+        -webkit-backdrop-filter: blur(25px);
+        border: 1px solid var(--border);
+        border-radius: 500px; 
+        z-index: 100;
+        width: fit-content;
+        color: #000;
+    }
+
+    .stat-box {
+        font-size: 0.85rem;
+        font-weight: 700;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: #000;
+    }
+
+    /* Black Timer with Glow Class */
+    #time {
+        color: #000;
+        transition: all 0.3s ease;
+        display: inline-block;
+    }
+
+    .time-bonus-glow {
+        color: var(--glow-color) !important;
+        text-shadow: 0 0 15px var(--glow-color), 0 0 30px var(--glow-color);
+        transform: scale(1.3);
+    }
+
+    /* Game Space */
+    #game-container {
+        position: relative;
+        margin-top: 20px;
+        width: 90vw;
+        height: 75vh;
+        background: var(--glass);
+        backdrop-filter: blur(40px);
+        -webkit-backdrop-filter: blur(40px);
+        border: 1px solid var(--border);
+        border-radius: 40px;
+        overflow: hidden;
+        cursor: crosshair;
+    }
+
+    /* Targets */
+    .target {
+        position: absolute;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s;
+    }
+
+    .target.clicked {
+        transform: scale(0);
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    /* Visual Combo Feedback */
+    .combo-popup {
+        position: absolute;
+        color: #000;
+        font-weight: 900;
+        font-size: 1.4rem;
+        pointer-events: none;
+        z-index: 1000;
+        text-align: center;
+        line-height: 1.2;
+        animation: floatUp 0.7s ease-out forwards;
+    }
+
+    @keyframes floatUp {
+        0% { transform: translateY(0); opacity: 1; }
+        100% { transform: translateY(-100px); opacity: 0; }
+    }
+
+    #menu {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        z-index: 50;
+    }
+
+    #start-btn {
+        margin-top: 20px;
+        padding: 18px 50px;
+        background: #000;
+        color: #fff;
+        border: none;
+        border-radius: 100px;
+        font-size: 0.9rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: 0.3s;
+    }
+
+    #start-btn:hover {
+        transform: scale(1.05);
+        background: #222;
+    }
+</style>
+</head>
+<body>
+
+<div id="header-ui">
+    <div class="stat-box">Score: <span id="score">0</span></div>
+    <div class="stat-box">Combo: <span id="combo-ui">0</span>/5</div>
+    <div class="stat-box">Time: <span id="time">30</span>s</div>
+</div>
+
+<div id="game-container">
+    <div id="menu">
+        <h1 style="font-weight: 100; font-size: 3.5rem; margin: 0; letter-spacing: 12px;">SOLID AIM</h1>
+        <p style="opacity: 0.6; font-weight: 300;">PRECISION REWARD SYSTEM</p>
+        <button id="start-btn">INITIALIZE</button>
+    </div>
+</div>
+
+<script>
+    const container = document.getElementById('game-container');
+    const scoreEl = document.getElementById('score');
+    const timeEl = document.getElementById('time');
+    const comboEl = document.getElementById('combo-ui');
+    const startBtn = document.getElementById('start-btn');
+    const menu = document.getElementById('menu');
+
+    let score = 0;
+    let timeLeft = 30;
+    let gameActive = false;
+    let timer;
+    let comboCount = 0;
+    let comboTimer;
+
+    function getRandomColor() {
+        const colors = ['rgba(255,255,255,0.8)', 'rgba(0,242,255,0.8)', 'rgba(255,0,127,0.8)', 'rgba(157,0,255,0.8)'];
+        return colors[Math.floor(Math.random() * colors.length)];
+    }
+
+    function getRandomShape() {
+        const r = () => Math.floor(Math.random() * 70 + 15);
+        return `${r()}% ${r()}% ${r()}% ${r()}% / ${r()}% ${r()}% ${r()}% ${r()}%`;
+    }
+
+    function showComboEffect(x, y) {
+        const popup = document.createElement('div');
+        popup.className = 'combo-popup';
+        popup.innerHTML = '+10 SCORE<br><span style="font-size: 1rem; color: #0066cc;">+15s BOOST</span>';
+        popup.style.left = x + 'px';
+        popup.style.top = y + 'px';
+        container.appendChild(popup);
+        setTimeout(() => popup.remove(), 700);
+    }
+
+    function handleCombo(x, y) {
+        clearTimeout(comboTimer);
+        comboCount++;
+        
+        if (comboCount >= 5) {
+            score += 10;
+            timeLeft += 15;
+            comboCount = 0;
+            
+            showComboEffect(x, y);
+            
+            // Blue Glow Trigger
+            timeEl.classList.add('time-bonus-glow');
+            setTimeout(() => {
+                timeEl.classList.remove('time-bonus-glow');
+            }, 800);
+            
+            comboEl.parentElement.style.transform = 'scale(1.2)';
+            setTimeout(() => comboEl.parentElement.style.transform = 'scale(1)', 150);
+        }
+
+        comboEl.innerText = comboCount;
+        scoreEl.innerText = score;
+        timeEl.innerText = timeLeft;
+
+        comboTimer = setTimeout(() => {
+            comboCount = 0;
+            comboEl.innerText = comboCount;
+        }, 800);
+    }
+
+    function createTarget() {
+        if (!gameActive) return;
+
+        const target = document.createElement('div');
+        target.className = 'target';
+        const size = Math.floor(Math.random() * 40 + 25);
+        
+        target.style.width = size + 'px';
+        target.style.height = size + 'px';
+        target.style.background = getRandomColor();
+        target.style.borderRadius = getRandomShape();
+        
+        const maxX = container.offsetWidth - size - 20;
+        const maxY = container.offsetHeight - size - 20;
+        target.style.left = Math.random() * maxX + 10 + 'px';
+        target.style.top = Math.random() * maxY + 10 + 'px';
+
+        target.onmousedown = (e) => {
+            if (target.classList.contains('clicked')) return;
+            target.classList.add('clicked');
+            
+            score++;
+            handleCombo(e.clientX - container.offsetLeft, e.clientY - container.offsetTop);
+            
+            setTimeout(() => {
+                if (target.parentNode === container) target.remove();
+                const burst = Math.floor(Math.random() * 2) + 1;
+                for(let i=0; i<burst; i++) {
+                    if(container.querySelectorAll('.target').length < 10) createTarget();
+                }
+            }, 150);
+        };
+
+        container.appendChild(target);
+    }
+
+    function startGame() {
+        score = 0;
+        timeLeft = 30;
+        comboCount = 0;
+        scoreEl.innerText = score;
+        timeEl.innerText = timeLeft;
+        comboEl.innerText = comboCount;
+        gameActive = true;
+        menu.style.display = 'none';
+
+        const initial = 5;
+        for(let i=0; i<initial; i++) createTarget();
+
+        clearInterval(timer);
+        timer = setInterval(() => {
+            timeLeft--;
+            timeEl.innerText = timeLeft;
+            if (timeLeft <= 0) endGame();
+        }, 1000);
+    }
+
+    function endGame() {
+        gameActive = false;
+        clearInterval(timer);
+        container.querySelectorAll('.target').forEach(t => t.remove());
+        menu.style.display = 'block';
+        menu.querySelector('h1').innerText = `SESSION END: ${score}`;
+        startBtn.innerText = 'RE-INITIALIZE';
+    }
+
+    startBtn.addEventListener('click', startGame);
+</script>
+</body>
+</html>
